@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="野猪个人独立站本地原型，包含个人介绍、服务预约、留言互动和后台管理。">
+    <title>野猪个人独立站</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#preview" aria-label="首页">
+        <span class="brand-mark"><img src="assets/yezhu-logo.png" alt="野猪 logo"></span>
+        <span>野猪个人独立站</span>
+      </a>
+      <nav aria-label="主导航">
+        <a href="#preview">客户主页</a>
+        <a href="#booking">预约</a>
+        <a href="#messages">留言</a>
+        <a href="#admin">后台</a>
+      </nav>
+      <button class="ghost-btn" id="resetDemo" type="button">恢复示例</button>
+    </header>
+
+    <main>
+      <section class="hero-home" id="home" aria-label="开屏功能选择">
+        <div class="hero-nav">
+          <a class="hero-logo" href="#home">
+            <span class="brand-mark"><img src="assets/yezhu-logo.png" alt="野猪 logo"></span>
+            <span>野猪个人独立站</span>
+          </a>
+          <div class="hero-status">
+            <span>09:30 今日可约</span>
+            <strong>3 个新线索</strong>
+          </div>
+        </div>
+        <div class="hero-core">
+          <p class="hero-tags">
+            <span>个人介绍</span>
+            <span>预约转化</span>
+            <span>留言互动</span>
+          </p>
+          <div class="hero-brand-emblem" aria-hidden="true">
+            <img src="assets/yezhu-logo.png" alt="">
+          </div>
+          <h1>野猪</h1>
+          <p class="hero-subtitle">个人独立站与客户丝滑链接</p>
+          <p class="hero-copy">野猪帮助摄影师、化妆师、发型师、美容师、美甲师、按摩师、保洁、宠物洗澡、AI 辅助、健身顾问、塔罗牌和环境科学服务者生成个人独立站，先选地域和工种，再配置头像、预约、作品图片和视频模块。</p>
+          <div class="launch-picker" aria-label="选择城市和工种">
+            <div>
+              <div class="picker-head">
+                <span>第一步</span>
+                <strong>选择所在地域</strong>
+              </div>
+              <div class="picker-options city-options" id="cityOptions"></div>
+            </div>
+            <div>
+              <div class="picker-head">
+                <span>第二步</span>
+                <strong>选择个人工种</strong>
+              </div>
+              <div class="picker-options job-options" id="jobOptions"></div>
+            </div>
+            <div>
+              <div class="picker-head">
+                <span>第三步</span>
+                <strong>选择网站风格</strong>
+              </div>
+              <div class="style-options" id="siteStyleOptions"></div>
+            </div>
+            <div>
+              <div class="picker-head">
+                <span>第四步</span>
+                <strong>选择颜色风格</strong>
+              </div>
+              <div class="color-options" id="colorStyleOptions"></div>
+            </div>
+          </div>
+          <a class="hero-start-btn" id="launchSite" href="#preview">一键生成个人独立站</a>
+        </div>
+        <div class="hero-metrics" aria-label="转化指标">
+          <div><strong>33</strong><span>重点地域</span></div>
+          <div><strong>12</strong><span>个人工种</span></div>
+          <div><strong>24h</strong><span>线索响应</span></div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <article class="phone-preview" id="preview" aria-label="客户看到的个人网站">
+          <div class="cover">
+            <div class="avatar" id="avatarPreview">林</div>
+            <div>
+              <p class="kicker" id="rolePreview">独立摄影师</p>
+              <h1 id="namePreview">林夏</h1>
+              <p class="site-meta" id="siteMetaPreview">北京 · 摄影师 · 可预约</p>
+              <p id="taglinePreview">帮个人品牌、小店和家庭记录自然、有温度的影像。</p>
+            </div>
+          </div>
+
+          <div class="quick-actions">
+            <a href="#booking">立即预约</a>
+            <a href="#messages">留言咨询</a>
+            <button type="button" id="shareBtn">复制主页文案</button>
+          </div>
+
+          <section class="preview-section about-section">
+            <h2>关于我</h2>
+            <p id="bioPreview">8 年拍摄经验，服务过独立咖啡馆、瑜伽老师、亲子家庭和本地生活品牌。擅长把普通空间拍出真实质感。</p>
+          </section>
+
+          <section class="preview-section services-section">
+            <h2>服务项目</h2>
+            <div class="service-list" id="servicePreview"></div>
+          </section>
+
+          <section class="preview-section works-section">
+            <h2>作品展示</h2>
+            <p class="section-note" id="worksModuleNote">作品图片模块已开启，可用于展示案例、前后对比和服务成果。</p>
+            <div class="portfolio-grid" id="portfolioPreview"></div>
+          </section>
+
+          <section class="preview-section video-section">
+            <h2>视频展示</h2>
+            <p class="section-note">视频模块为单独加购，适合展示妆造过程、宠物洗护、服务前后对比和 AI 辅助案例。</p>
+            <div class="video-grid" id="videoPreview"></div>
+          </section>
+
+          <section class="preview-section products-section">
+            <h2>服务预约</h2>
+            <p class="section-note" id="notifyPreview">客户提交预约后，将直接通知站主微信 linxia-wechat。</p>
+            <div class="product-grid" id="productPreview"></div>
+          </section>
+
+          <section class="preview-section schedule-section">
+            <h2>本月预约公开表</h2>
+            <p class="section-note">客户可查看站主本月已预约时间，避开繁忙日期再提交预约。</p>
+            <div class="month-board" id="monthBoardPreview"></div>
+          </section>
+
+          <section class="preview-section tiers-section">
+            <h2>会员折扣</h2>
+            <div class="tier-grid" id="tierPreview"></div>
+          </section>
+
+          <section class="preview-section plan-section">
+            <h2>野猪方案</h2>
+            <div class="plan-grid">
+              <article class="service-card">
+                <strong>基础版</strong>
+                <span><b class="price">￥19.9/月</b> · 个人主页、头像、服务预约、站主通知、公开月预约表</span>
+              </article>
+              <article class="service-card">
+                <strong>模块加购</strong>
+                <span>作品图片、视频展示、大空间、更多模板、智能客服按需开启。</span>
+              </article>
+              <article class="service-card">
+                <strong>主页地址</strong>
+                <span>使用野猪子域名，例如 yezhu.com/linxia。</span>
+              </article>
+            </div>
+          </section>
+
+          <section class="preview-section quote-section">
+            <h2>客户评价</h2>
+            <div class="quote">
+              <p>“沟通很顺，成片自然，发朋友圈和小红书都很好用。”</p>
+              <span>本地烘焙店主</span>
+            </div>
+          </section>
+        </article>
+
+        <aside class="admin-panel" id="admin" aria-label="个人独立站后台管理">
+          <div class="panel-head">
+            <p class="kicker">后台工作台</p>
+            <h2>编辑个人主页</h2>
+          </div>
+          <section class="creator-window setup-window">
+            <div class="window-head">
+              <p class="kicker">建站必选</p>
+              <h3>城市 / 工种 / 头像</h3>
+            </div>
+            <div class="form-grid compact-form">
+              <label>
+                所在地域
+                <select id="citySelect"></select>
+              </label>
+              <label>
+                服务工种
+                <select id="jobSelect"></select>
+              </label>
+              <label>
+                头像类型
+                <select id="avatarMode">
+                  <option value="real">真人头像</option>
+                  <option value="virtual">虚拟头像</option>
+                </select>
+              </label>
+              <label>
+                站主通知
+                <input id="notifyTarget" type="text" placeholder="微信号 / 手机号">
+              </label>
+            </div>
+            <p class="helper-text">头像是必选项：可以上传真人头像，也可以使用系统生成的虚拟头像。</p>
+          </section>
+          <div class="template-switcher admin-template-switcher" aria-label="个人独立站风格选择">
+            <p>选择网站风格：决定页面结构，不是换颜色</p>
+            <div class="site-style-options" id="siteStyleOptionsAdmin"></div>
+            <p>选择颜色风格：只改变视觉色彩</p>
+            <div class="color-options" id="colorStyleOptionsAdmin"></div>
+          </div>
+
+          <div class="creator-windows">
+            <section class="creator-window" aria-label="上传个人照片">
+              <div class="window-head">
+                <p class="kicker">必选头像</p>
+                <h3>真人 / 虚拟头像</h3>
+              </div>
+              <label class="upload-drop">
+                <input id="photoInput" type="file" accept="image/*">
+                <span id="photoPreviewBox">选择照片</span>
+              </label>
+              <button class="ghost-btn full" id="makeVirtualAvatar" type="button">生成虚拟头像</button>
+              <button class="ghost-btn full" id="clearPhoto" type="button">移除照片</button>
+            </section>
+
+            <section class="creator-window" aria-label="发布个人作品">
+              <div class="window-head">
+                <p class="kicker">可选模块</p>
+                <h3>发布作品图片</h3>
+              </div>
+              <label class="switch-row"><input id="enableWorks" type="checkbox"> 开启作品图片模块</label>
+              <label>
+                作品标题
+                <input id="workTitle" type="text" placeholder="例如：咖啡馆品牌拍摄">
+              </label>
+              <label>
+                作品说明
+                <textarea id="workDesc" placeholder="写下作品亮点、服务对象或成果"></textarea>
+              </label>
+              <label class="upload-drop compact">
+                <input id="workImageInput" type="file" accept="image/*">
+                <span id="workImagePreview">选择作品图片</span>
+              </label>
+              <button class="primary-btn full" id="publishWork" type="button">发布作品</button>
+            </section>
+          </div>
+
+          <div class="business-config">
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">空间模块</p>
+                <h3>基础空间 + 大空间加购</h3>
+              </div>
+              <div class="storage-row">
+                <span>基础图片空间</span>
+                <strong id="imageStorageText">0G / 5G</strong>
+                <progress id="imageStorageProgress" max="5" value="0"></progress>
+              </div>
+              <div class="storage-row">
+                <span>基础视频空间</span>
+                <strong id="videoStorageText">0G / 1G</strong>
+                <progress id="videoStorageProgress" max="1" value="0"></progress>
+              </div>
+              <p class="helper-text">1300G 图片 / 500G 视频属于大空间加购，不建议放入 19.9/月基础版。</p>
+              <div class="addon-list">
+                <span>图片 +50G：建议 ￥15/月</span>
+                <span>图片 +100G：建议 ￥29/月</span>
+                <span>视频 +10G：建议 ￥9/月</span>
+                <span>视频 +100G：建议 ￥39/月</span>
+                <span>视频流媒体包：建议 ￥59/月起</span>
+              </div>
+              <label class="switch-row"><input id="enableVideo" type="checkbox"> 开启视频展示模块</label>
+              <label class="upload-drop compact">
+                <input id="bulkMediaInput" type="file" accept="image/*,video/*" multiple>
+                <span>上传展示图片/视频</span>
+              </label>
+            </section>
+
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">预约服务</p>
+                <h3>无限服务窗口</h3>
+              </div>
+              <label>
+                名称
+                <input id="productName" type="text" placeholder="例如：周末小班课">
+              </label>
+              <label>
+                价格
+                <input id="productPrice" type="text" placeholder="例如：￥99">
+              </label>
+              <label>
+                说明
+                <textarea id="productDesc" placeholder="写下课程内容、可预约时间或服务说明"></textarea>
+              </label>
+              <button class="primary-btn full" id="addProduct" type="button">添加预约服务</button>
+            </section>
+
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">会员折扣</p>
+                <h3>商家自定义梯队</h3>
+              </div>
+              <div class="tier-editor" id="tierEditor"></div>
+            </section>
+
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">智能客服</p>
+                <h3>自动聊 + 转人工</h3>
+              </div>
+              <label>
+                转人工方式
+                <select id="contactChannel">
+                  <option value="wechat">微信</option>
+                  <option value="email">邮件</option>
+                </select>
+              </label>
+              <label>
+                联系方式
+                <input id="contactValue" type="text" placeholder="微信号或邮箱">
+              </label>
+              <p class="helper-text">第一版优先提醒到微信号；正式自动消息建议接企业微信或公众号客服。</p>
+            </section>
+
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">账户注册</p>
+                <h3>本人手机号注册</h3>
+              </div>
+              <label>
+                手机号
+                <input id="ownerPhone" type="tel" placeholder="请输入本人手机号">
+              </label>
+              <button class="primary-btn full" id="registerPhone" type="button">验证并注册</button>
+              <p class="helper-text" id="phoneStatus">未注册</p>
+            </section>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              姓名
+              <input id="nameInput" type="text">
+            </label>
+            <label>
+              职业定位
+              <input id="roleInput" type="text">
+            </label>
+            <label>
+              首页一句话
+              <input id="taglineInput" type="text">
+            </label>
+            <label>
+              个人介绍
+              <textarea id="bioInput"></textarea>
+            </label>
+          </div>
+
+          <div class="panel-split">
+            <div>
+              <h3>服务配置</h3>
+              <div id="serviceEditor" class="editor-list"></div>
+            </div>
+            <div>
+              <h3>转化开关</h3>
+              <label class="switch-row"><input id="showPrice" type="checkbox" checked> 显示价格</label>
+              <label class="switch-row"><input id="autoReply" type="checkbox" checked> 留言自动回复</label>
+              <label class="switch-row"><input id="smsReminder" type="checkbox"> 模拟短信提醒</label>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="conversion-grid">
+        <article class="module" id="booking">
+          <div class="panel-head">
+            <p class="kicker">预约系统</p>
+            <h2>客户选择服务和时间</h2>
+            <p class="section-note" id="bookingNotifyText">提交后将通知站主微信 linxia-wechat。</p>
+          </div>
+          <form id="bookingForm" class="booking-form">
+            <label>
+              选择服务
+              <select id="bookingService"></select>
+            </label>
+            <label>
+              预约日期
+              <input id="bookingDate" type="date" required>
+            </label>
+            <fieldset>
+              <legend>可选时间</legend>
+              <div class="time-grid" id="timeGrid"></div>
+            </fieldset>
+            <label>
+              客户姓名
+              <input id="customerName" type="text" required placeholder="例如：王女士">
+            </label>
+            <label>
+              联系方式
+              <input id="customerContact" type="text" required placeholder="手机号 / 微信 / 邮箱">
+            </label>
+            <button class="primary-btn" type="submit">提交预约</button>
+          </form>
+        </article>
+
+        <article class="module" id="messages">
+          <div class="panel-head">
+            <p class="kicker">留言互动</p>
+            <h2>客户留言和即时咨询</h2>
+          </div>
+          <form id="messageForm" class="message-form">
+            <label>
+              你的问题
+              <textarea id="messageText" required placeholder="写下你想咨询的服务、预算、时间..."></textarea>
+            </label>
+            <button class="primary-btn" type="submit">发送留言</button>
+          </form>
+          <div class="chat-box" id="chatBox" aria-live="polite"></div>
+        </article>
+
+        <article class="module">
+          <div class="panel-head">
+            <p class="kicker">线索看板</p>
+            <h2>预约与留言记录</h2>
+          </div>
+          <div class="stats">
+            <div><strong id="bookingCount">0</strong><span>预约</span></div>
+            <div><strong id="messageCount">0</strong><span>留言</span></div>
+            <div><strong id="leadScore">0</strong><span>线索分</span></div>
+          </div>
+          <div class="lead-list" id="leadList"></div>
+          <button class="ghost-btn full" id="exportLeads" type="button">导出线索 JSON</button>
+          <textarea id="exportBox" readonly placeholder="导出结果会显示在这里"></textarea>
+        </article>
+
+        <article class="module">
+          <div class="panel-head">
+            <p class="kicker">公开档期</p>
+            <h2>站主本月预约情况</h2>
+          </div>
+          <p class="section-note">这块会展示在个人独立站前台，客户可先看空档再预约。</p>
+          <div class="month-board month-board-large" id="monthBoardAdmin"></div>
+        </article>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status"></div>
+    <script src="script.js"></script>
+  </body>
+</html>

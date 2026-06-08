@@ -312,6 +312,8 @@ const dom = {
   ownerPhone: $("#ownerPhone"),
   registerPhone: $("#registerPhone"),
   phoneStatus: $("#phoneStatus"),
+  publishSite: $("#publishSite"),
+  publicLinkBox: $("#publicLinkBox"),
   busyDateInput: $("#busyDateInput"),
   addBusyDate: $("#addBusyDate"),
   busyDateList: $("#busyDateList"),
@@ -325,6 +327,10 @@ const dom = {
   enableWorks: $("#enableWorks"),
   enableVideo: $("#enableVideo"),
   notifyPreview: $("#notifyPreview"),
+  contactPreviewTitle: $("#contactPreviewTitle"),
+  contactPreviewValue: $("#contactPreviewValue"),
+  contactOwnerBtn: $("#contactOwnerBtn"),
+  copyContactBtn: $("#copyContactBtn"),
   bookingNotifyText: $("#bookingNotifyText"),
   monthBoardPreview: $("#monthBoardPreview"),
   monthBoardAdmin: $("#monthBoardAdmin"),
@@ -543,6 +549,7 @@ function isDateFull(dateValue) {
 }
 
 function renderProfile() {
+  document.body.dataset.publicView = new URLSearchParams(location.search).get("view") === "public" ? "true" : "false";
   document.body.dataset.template = "base";
   document.body.dataset.siteStyle = state.settings.siteStyle || "whitespace";
   document.body.dataset.colorStyle = state.settings.colorStyle || "klein";
@@ -597,6 +604,9 @@ function renderProfile() {
   dom.phoneStatus.textContent = state.settings.registered ? `已注册：${state.settings.ownerPhone}` : "未注册";
   dom.notifyPreview.textContent = `客户提交预约后，将直接通知站主微信 ${state.settings.notifyTarget || state.settings.contactValue}。`;
   dom.bookingNotifyText.textContent = `提交后将通知站主微信 ${state.settings.notifyTarget || state.settings.contactValue}。`;
+  const contactLabel = state.settings.contactChannel === "email" ? "邮件联系" : "微信联系";
+  dom.contactPreviewTitle.textContent = contactLabel;
+  dom.contactPreviewValue.textContent = state.settings.contactValue || state.settings.notifyTarget || "待填写";
 }
 
 function renderServices() {
@@ -1084,7 +1094,16 @@ dom.publishWork.addEventListener("click", () => {
   toast("作品已发布到个人主页");
 });
 
-dom.bulkMediaInput.addEventListener("change", () => {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", reject);
+    reader.readAsDataURL(file);
+  });
+}
+
+dom.bulkMediaInput.addEventListener("change", async () => {
   const files = [...(dom.bulkMediaInput.files || [])];
   let imageGb = 0;
   let videoGb = 0;
@@ -1099,13 +1118,20 @@ dom.bulkMediaInput.addEventListener("change", () => {
   }
   state.settings.imageUsedGb += imageGb;
   state.settings.videoUsedGb += videoGb;
-  files.forEach((file) => {
+  for (const file of files) {
+    let dataUrl = "";
+    try {
+      dataUrl = await readFileAsDataUrl(file);
+    } catch {
+      toast("部分媒体读取失败，请重新选择文件");
+      continue;
+    }
     if (file.type.startsWith("image/")) {
       state.settings.enableWorks = true;
       state.works.unshift({
         title: file.name.replace(/\.[^.]+$/, "") || "展示图片",
         desc: "通过展示媒体模块上传的图片。",
-        image: "",
+        image: dataUrl,
       });
     }
     if (file.type.startsWith("video/")) {
@@ -1113,13 +1139,13 @@ dom.bulkMediaInput.addEventListener("change", () => {
       state.videos.unshift({
         title: file.name.replace(/\.[^.]+$/, "") || "展示视频",
         desc: "通过视频展示模块上传的视频文件。",
-        src: "",
+        src: dataUrl,
       });
     }
-  });
+  }
   dom.bulkMediaInput.value = "";
   renderAll();
-  toast("展示媒体已计入空间用量");
+  toast("展示媒体已上传到个人主页");
 });
 
 dom.addProduct.addEventListener("click", () => {
@@ -1214,6 +1240,34 @@ $("#shareBtn").addEventListener("click", async () => {
   } catch {
     toast(text);
   }
+});
+
+dom.publishSite.addEventListener("click", async () => {
+  const publicUrl = `${location.origin}${location.pathname}?view=public#preview`;
+  dom.publicLinkBox.value = publicUrl;
+  try {
+    await navigator.clipboard.writeText(publicUrl);
+    toast("公开主页链接已复制");
+  } catch {
+    toast("公开主页链接已生成");
+  }
+});
+
+function contactText() {
+  const label = state.settings.contactChannel === "email" ? "邮箱" : "微信";
+  return `${label}：${state.settings.contactValue || state.settings.notifyTarget || "待填写"}`;
+}
+
+[dom.contactOwnerBtn, dom.copyContactBtn].forEach((button) => {
+  button.addEventListener("click", async () => {
+    const text = contactText();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("联系方式已复制");
+    } catch {
+      toast(text);
+    }
+  });
 });
 
 $("#exportLeads").addEventListener("click", () => {

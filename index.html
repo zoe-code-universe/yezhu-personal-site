@@ -99,6 +99,7 @@
           <div class="quick-actions">
             <a href="#booking">立即预约</a>
             <a href="#messages">留言咨询</a>
+            <button type="button" id="contactOwnerBtn">联系站主</button>
             <button type="button" id="shareBtn">复制主页文案</button>
           </div>
 
@@ -128,6 +129,15 @@
             <h2>服务预约</h2>
             <p class="section-note" id="notifyPreview">客户提交预约后，将直接通知站主微信 linxia-wechat。</p>
             <div class="product-grid" id="productPreview"></div>
+          </section>
+
+          <section class="preview-section contact-section">
+            <h2>联系站主</h2>
+            <div class="contact-card">
+              <strong id="contactPreviewTitle">微信联系</strong>
+              <span id="contactPreviewValue">linxia-wechat</span>
+              <button class="ghost-btn" id="copyContactBtn" type="button">复制联系方式</button>
+            </div>
           </section>
 
           <section class="preview-section schedule-section">
@@ -354,6 +364,16 @@
               </label>
               <button class="primary-btn full" id="registerPhone" type="button">验证并注册</button>
               <p class="helper-text" id="phoneStatus">未注册</p>
+            </section>
+
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">发布主页</p>
+                <h3>生成公开访问链接</h3>
+              </div>
+              <button class="primary-btn full" id="publishSite" type="button">生成公开主页链接</button>
+              <textarea id="publicLinkBox" readonly placeholder="生成后的公开主页链接会显示在这里"></textarea>
+              <p class="helper-text">静态原型会生成当前浏览器可访问的公开页模式；正式版需要后端保存数据后生成永久链接。</p>
             </section>
 
             <section class="creator-window">

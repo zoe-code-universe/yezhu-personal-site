@@ -852,7 +852,8 @@ h3 {
 .portfolio-card,
 .lead-item,
 .chat-message,
-.service-editor {
+.service-editor,
+.contact-card {
   padding: 14px;
   border: 1px solid rgba(82, 178, 205, 0.22);
   border-radius: 8px;
@@ -862,6 +863,22 @@ h3 {
 .service-card {
   display: grid;
   gap: 8px;
+}
+
+.contact-card {
+  display: grid;
+  gap: 10px;
+}
+
+.contact-card strong {
+  color: var(--cyan);
+}
+
+.contact-card span {
+  color: var(--white);
+  font-size: 20px;
+  font-weight: 900;
+  word-break: break-all;
 }
 
 .portfolio-grid {
@@ -1404,6 +1421,34 @@ legend {
   margin-top: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
+}
+
+#publicLinkBox {
+  min-height: 76px;
+  margin-top: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+}
+
+body[data-public-view="true"] .hero-home,
+body[data-public-view="true"] .admin-panel,
+body[data-public-view="true"] .topbar #resetDemo,
+body[data-public-view="true"] .topbar nav a[href="#admin"],
+body[data-public-view="true"] .conversion-grid .module:nth-child(3) {
+  display: none;
+}
+
+body[data-public-view="true"] .workspace {
+  grid-template-columns: minmax(0, 760px);
+  justify-content: center;
+}
+
+body[data-public-view="true"] .phone-preview {
+  min-height: auto;
+}
+
+body[data-public-view="true"] .conversion-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .toast {

@@ -233,6 +233,8 @@ const defaults = {
     imageUsedGb: 1.2,
     videoUsedGb: 0.2,
     blockedDates: [],
+    blockedSlots: {},
+    availableTimes: ["09:00", "10:00", "11:30", "14:00", "15:30", "17:00"],
   },
   bookings: [],
   videos: [
@@ -322,8 +324,10 @@ const dom = {
   publishSite: $("#publishSite"),
   publicLinkBox: $("#publicLinkBox"),
   busyDateInput: $("#busyDateInput"),
+  busyTimeInput: $("#busyTimeInput"),
   addBusyDate: $("#addBusyDate"),
   busyDateList: $("#busyDateList"),
+  availableTimesInput: $("#availableTimesInput"),
   cityOptions: $("#cityOptions"),
   jobOptions: $("#jobOptions"),
   citySelect: $("#citySelect"),
@@ -417,6 +421,8 @@ function loadState() {
       imageUsedGb: (parsed.settings?.imageUsedGb ?? defaults.settings.imageUsedGb) >= 5 ? defaults.settings.imageUsedGb : (parsed.settings?.imageUsedGb ?? defaults.settings.imageUsedGb),
       videoUsedGb: (parsed.settings?.videoUsedGb ?? defaults.settings.videoUsedGb) >= 1 ? defaults.settings.videoUsedGb : (parsed.settings?.videoUsedGb ?? defaults.settings.videoUsedGb),
       blockedDates: Array.isArray(parsed.settings?.blockedDates) ? parsed.settings.blockedDates : defaults.settings.blockedDates,
+      blockedSlots: parsed.settings?.blockedSlots && typeof parsed.settings.blockedSlots === "object" ? parsed.settings.blockedSlots : defaults.settings.blockedSlots,
+      availableTimes: Array.isArray(parsed.settings?.availableTimes) && parsed.settings.availableTimes.length ? parsed.settings.availableTimes : defaults.settings.availableTimes,
     },
     services: migratedServices,
     works: parsed.works?.length ? parsed.works : structuredClone(defaults.works),
@@ -503,6 +509,23 @@ async function saveSiteToServer() {
   return payload.site;
 }
 
+function buildSitePayload(phone = state.settings.ownerPhone) {
+  return {
+    phone,
+    profile: state.profile,
+    settings: {
+      ...state.settings,
+      ownerPhone: phone,
+      registered: Boolean(phone && /^1[3-9]\d{9}$/.test(phone)),
+    },
+    services: state.services,
+    works: state.works,
+    videos: state.videos,
+    products: state.products,
+    tiers: state.tiers,
+  };
+}
+
 function toast(text) {
   dom.toast.textContent = text;
   dom.toast.classList.add("show");
@@ -574,7 +597,7 @@ function renderStyleChoices() {
       <em>${style.fit}</em>
     </button>
   `).join("");
-  dom.siteStyleOptions.innerHTML = styleMarkup;
+  if (dom.siteStyleOptions) dom.siteStyleOptions.innerHTML = styleMarkup;
   dom.siteStyleOptionsAdmin.innerHTML = styleMarkup;
 
   const colorMarkup = Object.entries(colorStyles).map(([key, style]) => `
@@ -583,7 +606,7 @@ function renderStyleChoices() {
       <strong>${style.name}</strong>
     </button>
   `).join("");
-  dom.colorStyleOptions.innerHTML = colorMarkup;
+  if (dom.colorStyleOptions) dom.colorStyleOptions.innerHTML = colorMarkup;
   dom.colorStyleOptionsAdmin.innerHTML = colorMarkup;
 }
 
@@ -624,6 +647,14 @@ function isDateFull(dateValue) {
   if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return false;
   const counts = bookingCountsByDay();
   return (counts[date.getDate()] || 0) >= 3;
+}
+
+function isTimeBlocked(dateValue, timeValue) {
+  if (!dateValue || !timeValue) return false;
+  if (isDateFull(dateValue)) return true;
+  const availableTimes = state.settings.availableTimes || defaults.settings.availableTimes;
+  if (availableTimes.length && !availableTimes.includes(timeValue)) return true;
+  return (state.settings.blockedSlots?.[dateValue] || []).includes(timeValue);
 }
 
 function renderProfile() {
@@ -787,11 +818,21 @@ function renderMonthBoard() {
 
 function renderBusyDates() {
   const sortedDates = [...state.settings.blockedDates].sort();
-  dom.busyDateList.innerHTML = sortedDates.map((date) => `
+  const datePills = sortedDates.map((date) => `
     <button class="busy-date-pill" type="button" data-remove-busy-date="${date}">
       ${date} 已满 ×
     </button>
-  `).join("") || "<p class=\"helper-text\">暂未手动设置已满日期。</p>";
+  `).join("");
+  const slotPills = Object.entries(state.settings.blockedSlots || {})
+    .flatMap(([date, times]) => (times || []).map((time) => ({ date, time })))
+    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))
+    .map(({ date, time }) => `
+      <button class="busy-date-pill" type="button" data-remove-busy-slot="${date}|${time}">
+        ${date} ${time} 已满 ×
+      </button>
+    `).join("");
+  dom.busyDateList.innerHTML = datePills + slotPills || "<p class=\"helper-text\">暂未手动设置已满日期或时间段。</p>";
+  dom.availableTimesInput.value = (state.settings.availableTimes || defaults.settings.availableTimes).join(",");
 }
 
 function renderBookingDateStatus() {
@@ -805,7 +846,8 @@ function renderBookingDateStatus() {
     dom.bookingDateStatus.classList.add("blocked");
     return;
   }
-  dom.bookingDateStatus.textContent = "该日期可预约。";
+  const blockedTimes = (state.settings.blockedSlots?.[dom.bookingDate.value] || []).join("、");
+  dom.bookingDateStatus.textContent = blockedTimes ? `该日期可预约，已满时间：${blockedTimes}。` : "该日期可预约。";
   dom.bookingDateStatus.classList.remove("blocked");
 }
 
@@ -843,9 +885,12 @@ function renderStorage() {
 }
 
 function renderTimeGrid() {
-  const times = ["09:00", "10:00", "11:30", "14:00", "15:30", "17:00"];
+  const times = state.settings.availableTimes?.length ? state.settings.availableTimes : defaults.settings.availableTimes;
+  if (isTimeBlocked(dom.bookingDate.value, selectedTime)) {
+    selectedTime = times.find((time) => !isTimeBlocked(dom.bookingDate.value, time)) || times[0];
+  }
   dom.timeGrid.innerHTML = times.map((time) => `
-    <button class="${time === selectedTime ? "active" : ""}" type="button" data-time="${time}">${time}</button>
+    <button class="${time === selectedTime ? "active" : ""}" type="button" data-time="${time}" ${isTimeBlocked(dom.bookingDate.value, time) ? "disabled" : ""}>${time}</button>
   `).join("");
 }
 
@@ -982,6 +1027,17 @@ function bindInputs() {
 
   dom.bookingDate.addEventListener("input", () => {
     renderBookingDateStatus();
+    renderTimeGrid();
+  });
+
+  dom.availableTimesInput.addEventListener("input", () => {
+    const times = dom.availableTimesInput.value
+      .split(/[,，\s]+/)
+      .map((time) => time.trim())
+      .filter((time) => /^\d{2}:\d{2}$/.test(time));
+    state.settings.availableTimes = times.length ? [...new Set(times)] : structuredClone(defaults.settings.availableTimes);
+    renderTimeGrid();
+    saveState();
   });
 }
 
@@ -1056,9 +1112,10 @@ document.addEventListener("click", (event) => {
     toast("已带入服务，请选择时间提交预约");
   }
   if (target.dataset.productBook !== undefined) {
-    if (isDateFull(dom.bookingDate.value)) {
+    if (isDateFull(dom.bookingDate.value) || isTimeBlocked(dom.bookingDate.value, selectedTime)) {
       renderBookingDateStatus();
-      toast("该日期已满，请选择其他日期");
+      renderTimeGrid();
+      toast("该日期或时间段已满，请选择其他时间");
       location.hash = "#booking";
       return;
     }
@@ -1100,6 +1157,13 @@ document.addEventListener("click", (event) => {
     renderAll();
     toast("已取消该日已满标记");
   }
+  if (target.dataset.removeBusySlot) {
+    const [date, time] = target.dataset.removeBusySlot.split("|");
+    state.settings.blockedSlots[date] = (state.settings.blockedSlots[date] || []).filter((item) => item !== time);
+    if (!state.settings.blockedSlots[date].length) delete state.settings.blockedSlots[date];
+    renderAll();
+    toast("已取消该时间段已满标记");
+  }
 });
 
 function readImage(input, callback) {
@@ -1124,7 +1188,7 @@ async function ensureServerSite() {
   }
   const payload = await apiRequest("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ phone, name: state.profile.name, role: state.profile.role, city: state.settings.city, job: state.settings.job }),
+    body: JSON.stringify(buildSitePayload(phone)),
   });
   localStorage.setItem(tokenKey, payload.token);
   applyServerData(payload);
@@ -1334,16 +1398,21 @@ dom.addProduct.addEventListener("click", () => {
 
 dom.addBusyDate.addEventListener("click", () => {
   const date = dom.busyDateInput.value;
+  const time = dom.busyTimeInput.value;
   if (!date) {
     toast("请选择要标记已满的日期");
     return;
   }
-  if (!state.settings.blockedDates.includes(date)) {
+  if (time) {
+    if (!state.settings.blockedSlots[date]) state.settings.blockedSlots[date] = [];
+    if (!state.settings.blockedSlots[date].includes(time)) state.settings.blockedSlots[date].push(time);
+  } else if (!state.settings.blockedDates.includes(date)) {
     state.settings.blockedDates.push(date);
   }
   dom.busyDateInput.value = "";
+  dom.busyTimeInput.value = "";
   renderAll();
-  toast("已标记该日已满");
+  toast(time ? "已标记该时间段已满" : "已标记该日已满");
 });
 
 dom.registerPhone.addEventListener("click", async () => {
@@ -1356,18 +1425,7 @@ dom.registerPhone.addEventListener("click", async () => {
     try {
       const payload = await apiRequest("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({
-          phone,
-          name: state.profile.name,
-          role: state.profile.role,
-          city: state.settings.city,
-          job: state.settings.job,
-          notifyTarget: state.settings.notifyTarget,
-          contactValue: state.settings.contactValue,
-          siteStyle: state.settings.siteStyle,
-          colorStyle: state.settings.colorStyle,
-          services: state.services,
-        }),
+        body: JSON.stringify(buildSitePayload(phone)),
       });
       localStorage.setItem(tokenKey, payload.token);
       applyServerData(payload);
@@ -1391,6 +1449,12 @@ dom.bookingForm.addEventListener("submit", (event) => {
   if (isDateFull(dom.bookingDate.value)) {
     renderBookingDateStatus();
     toast("该日期已满，请选择其他日期");
+    return;
+  }
+  if (isTimeBlocked(dom.bookingDate.value, selectedTime)) {
+    renderBookingDateStatus();
+    renderTimeGrid();
+    toast("该时间段已满，请选择其他时间");
     return;
   }
   const service = state.services[Number(dom.bookingService.value)];

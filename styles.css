@@ -1049,6 +1049,54 @@ h3 {
   background: rgba(205, 220, 222, 0.06);
 }
 
+.builder-roadmap {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.builder-roadmap li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px;
+  color: rgba(242, 251, 255, 0.82);
+  border: 1px solid rgba(82, 178, 205, 0.24);
+  border-radius: 8px;
+  background: rgba(11, 21, 23, 0.38);
+}
+
+.builder-roadmap strong {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--black);
+  border-radius: 999px;
+  background: var(--cyan);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.builder-roadmap span {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.profile-step,
+.template-switcher.creator-window,
+.color-step,
+.account-step {
+  margin-bottom: 18px;
+}
+
 .window-head h3 {
   margin-bottom: 12px;
 }
@@ -1209,6 +1257,10 @@ h3 {
   gap: 12px;
 }
 
+.wide-field {
+  grid-column: 1 / -1;
+}
+
 label {
   display: grid;
   gap: 7px;
@@ -1343,6 +1395,14 @@ legend {
   color: var(--black);
   background: var(--cyan);
   border-color: var(--cyan);
+}
+
+.time-grid button:disabled {
+  cursor: not-allowed;
+  color: rgba(242, 251, 255, 0.38);
+  border-color: rgba(140, 140, 142, 0.28);
+  background: rgba(140, 140, 142, 0.16);
+  text-decoration: line-through;
 }
 
 .stats {

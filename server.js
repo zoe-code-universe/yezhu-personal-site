@@ -82,55 +82,76 @@ function publicSite(site) {
 }
 
 function defaultSiteForUser(user, payload = {}) {
-  const ownerName = payload.name || `站主${user.phone.slice(-4)}`;
+  const profilePayload = payload.profile || {};
+  const settingsPayload = payload.settings || {};
+  const ownerName = profilePayload.name || payload.name || `站主${user.phone.slice(-4)}`;
   return {
     id: randomUUID(),
     ownerId: user.id,
     slug: slugify(ownerName),
     profile: {
       name: ownerName,
-      role: payload.role || "个人独立站主",
-      tagline: payload.tagline || "把个人介绍、服务预约和客户联系放在一个独立站里。",
-      bio: payload.bio || "欢迎通过我的个人独立站了解服务、查看档期并提交预约。",
-      photo: "",
-      coverPhoto: "",
-      gender: "不展示",
+      role: profilePayload.role || payload.role || "个人独立站主",
+      tagline: profilePayload.tagline || payload.tagline || "把个人介绍、服务预约和客户联系放在一个独立站里。",
+      bio: profilePayload.bio || payload.bio || "欢迎通过我的个人独立站了解服务、查看档期并提交预约。",
+      photo: profilePayload.photo || "",
+      coverPhoto: profilePayload.coverPhoto || "",
+      gender: profilePayload.gender || "不展示",
     },
     services: payload.services || [
       { name: "体验咨询", price: "￥49", duration: "30 分钟", desc: "适合首次了解服务和确认目标。" },
       { name: "一对一服务", price: "￥199", duration: "60 分钟", desc: "按个人需求提供一对一服务。" },
     ],
-    works: [],
-    videos: [],
-    products: [],
-    tiers: [
+    works: payload.works || [],
+    videos: payload.videos || [],
+    products: payload.products || [],
+    tiers: payload.tiers || [
       { name: "普通会员", discount: 95 },
       { name: "银卡会员", discount: 88 },
       { name: "金卡会员", discount: 80 },
     ],
     settings: {
-      city: payload.city || "北京",
-      job: payload.job || "fitnessConsultant",
-      avatarMode: "virtual",
-      enableWorks: false,
-      enableVideo: false,
-      notifyTarget: payload.notifyTarget || user.phone,
-      contactChannel: "wechat",
-      contactValue: payload.contactValue || user.phone,
-      siteStyle: payload.siteStyle || "timeline",
-      colorStyle: payload.colorStyle || "orange",
-      showPrice: true,
-      autoReply: true,
-      smsReminder: false,
+      city: settingsPayload.city || payload.city || "北京",
+      job: settingsPayload.job || payload.job || "fitnessConsultant",
+      avatarMode: settingsPayload.avatarMode || "virtual",
+      enableWorks: Boolean(settingsPayload.enableWorks),
+      enableVideo: Boolean(settingsPayload.enableVideo),
+      notifyTarget: settingsPayload.notifyTarget || payload.notifyTarget || user.phone,
+      contactChannel: settingsPayload.contactChannel || "wechat",
+      contactValue: settingsPayload.contactValue || payload.contactValue || user.phone,
+      siteStyle: settingsPayload.siteStyle || payload.siteStyle || "timeline",
+      colorStyle: settingsPayload.colorStyle || payload.colorStyle || "orange",
+      showPrice: settingsPayload.showPrice ?? true,
+      autoReply: settingsPayload.autoReply ?? true,
+      smsReminder: Boolean(settingsPayload.smsReminder),
       ownerPhone: user.phone,
       registered: true,
-      imageUsedGb: 0,
-      videoUsedGb: 0,
-      blockedDates: [],
+      imageUsedGb: settingsPayload.imageUsedGb || 0,
+      videoUsedGb: settingsPayload.videoUsedGb || 0,
+      blockedDates: settingsPayload.blockedDates || [],
+      blockedSlots: settingsPayload.blockedSlots || {},
+      availableTimes: settingsPayload.availableTimes || ["09:00", "10:00", "11:30", "14:00", "15:30", "17:00"],
     },
     createdAt: nowIso(),
     updatedAt: nowIso(),
   };
+}
+
+function applySitePayload(site, payload = {}) {
+  site.profile = { ...site.profile, ...(payload.profile || {}) };
+  site.settings = {
+    ...site.settings,
+    ...(payload.settings || {}),
+    registered: true,
+    ownerPhone: payload.phone || site.settings.ownerPhone,
+  };
+  site.services = payload.services || site.services;
+  site.works = payload.works || site.works;
+  site.videos = payload.videos || site.videos;
+  site.products = payload.products || site.products;
+  site.tiers = payload.tiers || site.tiers;
+  site.updatedAt = nowIso();
+  return site;
 }
 
 async function readBody(req, limit = 25 * 1024 * 1024) {
@@ -209,6 +230,15 @@ function isDateFull(site, bookings, dateValue) {
   return count >= 3;
 }
 
+function isTimeUnavailable(site, bookings, dateValue, timeValue) {
+  if (isDateFull(site, bookings, dateValue)) return true;
+  if (!dateValue || !timeValue) return false;
+  const availableTimes = site.settings.availableTimes || [];
+  const blockedSlots = site.settings.blockedSlots || {};
+  if (availableTimes.length && !availableTimes.includes(timeValue)) return true;
+  return (blockedSlots[dateValue] || []).includes(timeValue);
+}
+
 async function handleApi(req, res, url) {
   const db = await readDb();
 
@@ -230,6 +260,8 @@ async function handleApi(req, res, url) {
       site = defaultSiteForUser(user, payload);
       site.token = randomUUID();
       db.sites.push(site);
+    } else {
+      applySitePayload(site, payload);
     }
     await writeDb(db);
     return jsonResponse(res, 200, { token: site.token, site: publicSite(site) });
@@ -299,7 +331,7 @@ async function handleApi(req, res, url) {
     const site = db.sites.find((item) => item.slug === decodeURIComponent(bookingMatch[1]));
     if (!site) return jsonResponse(res, 404, { error: "站点不存在" });
     const payload = await readJson(req);
-    if (isDateFull(site, db.bookings, payload.date)) return jsonResponse(res, 409, { error: "该日期已满，请选择其他日期" });
+    if (isTimeUnavailable(site, db.bookings, payload.date, payload.time)) return jsonResponse(res, 409, { error: "该日期或时间段已满，请选择其他时间" });
     const booking = {
       id: randomUUID(),
       siteId: site.id,

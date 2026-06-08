@@ -718,7 +718,7 @@ function renderProfile() {
   dom.contactPreviewValue.textContent = state.settings.contactValue || state.settings.notifyTarget || "待填写";
 }
 
-function renderServices() {
+function renderServices(renderEditor = true) {
   dom.servicePreview.innerHTML = state.services.map((service, index) => `
     <article class="service-card">
       <strong>${service.name}</strong>
@@ -728,18 +728,47 @@ function renderServices() {
     </article>
   `).join("");
 
-  dom.serviceEditor.innerHTML = state.services.map((service, index) => `
-    <div class="service-editor">
-      <input value="${service.name}" aria-label="服务名称" data-service-name="${index}">
-      <input value="${service.price}" aria-label="服务价格" data-service-price="${index}">
-      <input value="${service.duration}" aria-label="服务时长" data-service-duration="${index}">
-      <input value="${service.desc}" aria-label="服务描述" data-service-desc="${index}">
-    </div>
-  `).join("");
+  if (renderEditor) {
+    dom.serviceEditor.innerHTML = state.services.map((service, index) => `
+      <div class="service-editor">
+        <input value="${service.name}" aria-label="服务名称" data-service-name="${index}">
+        <input value="${service.price}" aria-label="服务价格" data-service-price="${index}">
+        <input value="${service.duration}" aria-label="服务时长" data-service-duration="${index}">
+        <input value="${service.desc}" aria-label="服务描述" data-service-desc="${index}">
+      </div>
+    `).join("");
+  }
 
   dom.bookingService.innerHTML = state.services.map((service, index) => `
     <option value="${index}">${service.name} · ${service.duration}</option>
   `).join("");
+}
+
+function syncStateFromForm() {
+  state.profile.name = dom.nameInput.value.trim() || state.profile.name;
+  state.profile.role = dom.roleInput.value.trim() || state.profile.role;
+  state.profile.tagline = dom.taglineInput.value.trim() || state.profile.tagline;
+  state.profile.bio = dom.bioInput.value.trim() || state.profile.bio;
+  state.settings.ownerPhone = dom.ownerPhone.value.trim() || state.settings.ownerPhone;
+  state.settings.contactValue = dom.contactValue.value.trim() || state.settings.contactValue;
+  state.settings.notifyTarget = dom.contactValue.value.trim() || dom.notifyTarget.value.trim() || state.settings.notifyTarget;
+  state.settings.contactChannel = dom.contactChannel.value;
+  state.settings.city = dom.citySelect.value || state.settings.city;
+  state.settings.job = dom.jobSelect.value || state.settings.job;
+  state.profile.gender = dom.genderSelect.value || state.profile.gender;
+  state.settings.avatarMode = dom.avatarMode.value || state.settings.avatarMode;
+  state.settings.availableTimes = dom.availableTimesInput.value
+    .split(/[,，\s]+/)
+    .map((time) => time.trim())
+    .filter((time) => /^\d{2}:\d{2}$/.test(time));
+  if (!state.settings.availableTimes.length) state.settings.availableTimes = structuredClone(defaults.settings.availableTimes);
+  state.services.forEach((service, index) => {
+    service.name = document.querySelector(`[data-service-name="${index}"]`)?.value.trim() || service.name;
+    service.price = document.querySelector(`[data-service-price="${index}"]`)?.value.trim() || service.price;
+    service.duration = document.querySelector(`[data-service-duration="${index}"]`)?.value.trim() || service.duration;
+    service.desc = document.querySelector(`[data-service-desc="${index}"]`)?.value.trim() || service.desc;
+  });
+  saveState();
 }
 
 function renderWorks() {
@@ -1050,7 +1079,7 @@ document.addEventListener("input", (event) => {
     if (target.dataset.servicePrice !== undefined) service.price = target.value;
     if (target.dataset.serviceDuration !== undefined) service.duration = target.value;
     if (target.dataset.serviceDesc !== undefined) service.desc = target.value;
-    renderServices();
+    renderServices(false);
     saveState();
   }
 
@@ -1416,6 +1445,7 @@ dom.addBusyDate.addEventListener("click", () => {
 });
 
 dom.registerPhone.addEventListener("click", async () => {
+  syncStateFromForm();
   const phone = dom.ownerPhone.value.trim();
   if (!/^1[3-9]\d{9}$/.test(phone)) {
     toast("请输入有效的本人手机号");
@@ -1535,6 +1565,7 @@ $("#shareBtn").addEventListener("click", async () => {
 });
 
 dom.publishSite.addEventListener("click", async () => {
+  syncStateFromForm();
   let slug = state.server.slug;
   if (serverAvailable) {
     try {

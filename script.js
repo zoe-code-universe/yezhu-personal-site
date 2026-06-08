@@ -966,6 +966,20 @@ function renderLeads() {
     .join("") || "<p>还没有线索，先提交一个预约或留言。</p>";
 }
 
+function renderInvalidPublicPage(message) {
+  document.body.dataset.publicView = "true";
+  dom.namePreview.textContent = "公开主页链接无效";
+  dom.rolePreview.textContent = "无法读取站点";
+  dom.siteMetaPreview.textContent = "请重新生成公开主页链接";
+  dom.taglinePreview.textContent = message;
+  dom.bioPreview.textContent = "当前链接缺少站点标识，系统没有加载任何模板默认资料。";
+  dom.servicePreview.innerHTML = "";
+  dom.productPreview.innerHTML = "";
+  dom.portfolioPreview.innerHTML = "";
+  dom.videoPreview.innerHTML = "";
+  dom.contactPreviewValue.textContent = "未加载";
+}
+
 function renderAll() {
   renderProfile();
   renderServices();
@@ -1566,26 +1580,38 @@ $("#shareBtn").addEventListener("click", async () => {
 
 dom.publishSite.addEventListener("click", async () => {
   syncStateFromForm();
-  let slug = state.server.slug;
-  if (serverAvailable) {
-    try {
-      const ok = await ensureServerSite();
-      if (ok) {
-        const site = await saveSiteToServer();
-        slug = site?.slug || state.server.slug;
-      }
-    } catch (error) {
-      toast(error.message || "后端保存失败，生成本地公开链接");
-    }
+
+  if (!serverAvailable) {
+    toast("后端未连接，无法生成真实公开主页");
+    return;
   }
-  const siteParam = slug ? `&site=${encodeURIComponent(slug)}` : "";
-  const publicUrl = `${location.origin}${location.pathname}?view=public${siteParam}#preview`;
-  dom.publicLinkBox.value = publicUrl;
+
   try {
-    await navigator.clipboard.writeText(publicUrl);
-    toast("公开主页链接已复制");
-  } catch {
-    toast("公开主页链接已生成");
+    const ok = await ensureServerSite();
+    if (!ok) {
+      toast("请先完成手机号注册");
+      return;
+    }
+
+    const site = await saveSiteToServer();
+    const slug = site?.slug || state.server.slug;
+
+    if (!slug) {
+      toast("站点保存失败：没有生成公开地址，请重试");
+      return;
+    }
+
+    const publicUrl = `${location.origin}${location.pathname}?view=public&site=${encodeURIComponent(slug)}#preview`;
+    dom.publicLinkBox.value = publicUrl;
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      toast("公开主页链接已生成，并已复制到剪贴板");
+    } catch {
+      toast("公开主页链接已生成");
+    }
+  } catch (error) {
+    toast(error.message || "后端保存失败，请重试");
   }
 });
 
@@ -1634,10 +1660,23 @@ dom.bookingDate.value = today.toISOString().slice(0, 10);
 bindInputs();
 
 async function boot() {
+  const isPublicView = new URLSearchParams(location.search).get("view") === "public";
+
+  if (isPublicView && !publicSlug) {
+    const message = "公开主页链接无效，缺少站点标识。请重新生成。";
+    renderInvalidPublicPage(message);
+    toast(message);
+    return;
+  }
+
   renderAll();
   await detectServer();
+
   if (serverAvailable && publicSlug) {
-    await loadPublicSiteFromServer();
+    const loaded = await loadPublicSiteFromServer();
+    if (!loaded && isPublicView) {
+      toast("公开主页读取失败，请重新生成链接");
+    }
   } else if (serverAvailable && state.server.siteId && localStorage.getItem(tokenKey)) {
     try {
       const payload = await apiRequest(`/api/sites/${state.server.siteId}`);

@@ -263,12 +263,19 @@ const defaults = {
     { from: "客户", text: "你好，周末可以拍个人形象照吗？", createdAt: "2026-06-08T09:00:00.000Z" },
     { from: "林夏", text: "可以的，你可以先选择服务和时间，我会确认具体地点。", createdAt: "2026-06-08T09:01:00.000Z" },
   ],
+  server: {
+    siteId: "",
+    slug: "",
+  },
 };
 
 const storeKey = "xiaob_site_demo";
+const tokenKey = "yezhu_owner_token";
 let selectedTime = "10:00";
 let showAllCities = false;
 let showAllJobs = false;
+let serverAvailable = false;
+let publicSlug = new URLSearchParams(location.search).get("site") || "";
 let state = loadState();
 
 const $ = (selector) => document.querySelector(selector);
@@ -418,11 +425,82 @@ function loadState() {
     tiers: parsed.tiers?.length ? parsed.tiers : structuredClone(defaults.tiers),
     bookings,
     messages,
+    server: { ...defaults.server, ...(parsed.server || {}) },
   };
 }
 
 function saveState() {
   localStorage.setItem(storeKey, JSON.stringify(state));
+}
+
+async function apiRequest(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  const token = localStorage.getItem(tokenKey);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (options.body && !(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
+  const response = await fetch(path, { ...options, headers });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "请求失败");
+  return payload;
+}
+
+function applyServerData(payload) {
+  if (!payload?.site) return;
+  const { site, bookings = state.bookings, messages = state.messages } = payload;
+  state = {
+    ...state,
+    profile: { ...state.profile, ...(site.profile || {}) },
+    settings: { ...state.settings, ...(site.settings || {}) },
+    services: site.services || state.services,
+    works: site.works || state.works,
+    videos: site.videos || state.videos,
+    products: site.products || state.products,
+    tiers: site.tiers || state.tiers,
+    bookings,
+    messages,
+    server: { siteId: site.id || "", slug: site.slug || "" },
+  };
+}
+
+async function detectServer() {
+  try {
+    await apiRequest("/api/health");
+    serverAvailable = true;
+  } catch {
+    serverAvailable = false;
+  }
+}
+
+async function loadPublicSiteFromServer() {
+  if (!publicSlug) return false;
+  try {
+    const payload = await apiRequest(`/api/public/${encodeURIComponent(publicSlug)}`);
+    applyServerData(payload);
+    renderAll();
+    return true;
+  } catch (error) {
+    toast(error.message || "公开主页读取失败");
+    return false;
+  }
+}
+
+async function saveSiteToServer() {
+  if (!serverAvailable || !state.server.siteId || !localStorage.getItem(tokenKey)) return null;
+  const payload = await apiRequest(`/api/sites/${state.server.siteId}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      profile: state.profile,
+      settings: state.settings,
+      services: state.services,
+      works: state.works,
+      videos: state.videos,
+      products: state.products,
+      tiers: state.tiers,
+    }),
+  });
+  applyServerData(payload);
+  saveState();
+  return payload.site;
 }
 
 function toast(text) {
@@ -985,6 +1063,24 @@ document.addEventListener("click", (event) => {
       return;
     }
     const product = state.products[Number(target.dataset.productBook)];
+    if (serverAvailable && publicSlug) {
+      apiRequest(`/api/public/${encodeURIComponent(publicSlug)}/bookings`, {
+        method: "POST",
+        body: JSON.stringify({
+          service: product.name,
+          date: dom.bookingDate.value,
+          time: selectedTime,
+          customer: "待填写客户",
+          contact: "来自商品预约按钮",
+        }),
+      }).then((payload) => {
+        state.bookings.push(payload.booking);
+        renderAll();
+        location.hash = "#booking";
+        toast("橱窗预约已提交到站主后台");
+      }).catch((error) => toast(error.message || "预约提交失败"));
+      return;
+    }
     state.bookings.push({
       service: product.name,
       date: dom.bookingDate.value,
@@ -1018,7 +1114,45 @@ function readImage(input, callback) {
   reader.readAsDataURL(file);
 }
 
+async function ensureServerSite() {
+  if (!serverAvailable) return false;
+  if (state.server.siteId && localStorage.getItem(tokenKey)) return true;
+  const phone = state.settings.ownerPhone || dom.ownerPhone.value.trim();
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    toast("请先用本人手机号注册，再上传到后端");
+    return false;
+  }
+  const payload = await apiRequest("/api/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ phone, name: state.profile.name, role: state.profile.role, city: state.settings.city, job: state.settings.job }),
+  });
+  localStorage.setItem(tokenKey, payload.token);
+  applyServerData(payload);
+  return true;
+}
+
+async function uploadFileToServer(file, type) {
+  const ok = await ensureServerSite();
+  if (!ok) return null;
+  const formData = new FormData();
+  formData.append("file", file);
+  const payload = await apiRequest(`/api/sites/${state.server.siteId}/upload?type=${encodeURIComponent(type)}`, {
+    method: "POST",
+    body: formData,
+  });
+  applyServerData(payload);
+  renderAll();
+  return payload.fileUrl;
+}
+
 dom.coverInput.addEventListener("change", () => {
+  const file = dom.coverInput.files?.[0];
+  if (file && serverAvailable) {
+    uploadFileToServer(file, "cover").then((url) => {
+      if (url) toast("封面照片已上传到后端");
+    }).catch((error) => toast(error.message || "封面上传失败"));
+    return;
+  }
   readImage(dom.coverInput, (dataUrl) => {
     state.profile.coverPhoto = dataUrl;
     renderAll();
@@ -1034,6 +1168,13 @@ dom.clearCover.addEventListener("click", () => {
 });
 
 dom.photoInput.addEventListener("change", () => {
+  const file = dom.photoInput.files?.[0];
+  if (file && serverAvailable) {
+    uploadFileToServer(file, "avatar").then((url) => {
+      if (url) toast("真人头像已上传到后端");
+    }).catch((error) => toast(error.message || "头像上传失败"));
+    return;
+  }
   readImage(dom.photoInput, (dataUrl) => {
     state.profile.photo = dataUrl;
     state.settings.avatarMode = "real";
@@ -1059,6 +1200,19 @@ dom.clearPhoto.addEventListener("click", () => {
 });
 
 dom.workImageInput.addEventListener("change", () => {
+  const file = dom.workImageInput.files?.[0];
+  if (file && serverAvailable) {
+    uploadFileToServer(file, "work").then((url) => {
+      if (url) {
+        dom.workImagePreview.parentElement.classList.add("has-image");
+        dom.workImagePreview.style.backgroundImage = `url(${url})`;
+        dom.workImagePreview.dataset.image = url;
+        dom.workImagePreview.textContent = "已选择作品图片";
+        toast("作品图片已上传到后端");
+      }
+    }).catch((error) => toast(error.message || "作品图上传失败"));
+    return;
+  }
   readImage(dom.workImageInput, (dataUrl) => {
     dom.workImagePreview.parentElement.classList.add("has-image");
     dom.workImagePreview.style.backgroundImage = `url(${dataUrl})`;
@@ -1105,6 +1259,20 @@ function readFileAsDataUrl(file) {
 
 dom.bulkMediaInput.addEventListener("change", async () => {
   const files = [...(dom.bulkMediaInput.files || [])];
+  if (serverAvailable && files.length) {
+    try {
+      for (const file of files) {
+        if (file.type.startsWith("image/")) await uploadFileToServer(file, "work");
+        if (file.type.startsWith("video/")) await uploadFileToServer(file, "video");
+      }
+      dom.bulkMediaInput.value = "";
+      await saveSiteToServer();
+      toast("展示图片/视频已上传到后端");
+    } catch (error) {
+      toast(error.message || "媒体上传失败");
+    }
+    return;
+  }
   let imageGb = 0;
   let videoGb = 0;
   files.forEach((file) => {
@@ -1178,11 +1346,39 @@ dom.addBusyDate.addEventListener("click", () => {
   toast("已标记该日已满");
 });
 
-dom.registerPhone.addEventListener("click", () => {
+dom.registerPhone.addEventListener("click", async () => {
   const phone = dom.ownerPhone.value.trim();
   if (!/^1[3-9]\d{9}$/.test(phone)) {
     toast("请输入有效的本人手机号");
     return;
+  }
+  if (serverAvailable) {
+    try {
+      const payload = await apiRequest("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          phone,
+          name: state.profile.name,
+          role: state.profile.role,
+          city: state.settings.city,
+          job: state.settings.job,
+          notifyTarget: state.settings.notifyTarget,
+          contactValue: state.settings.contactValue,
+          siteStyle: state.settings.siteStyle,
+          colorStyle: state.settings.colorStyle,
+          services: state.services,
+        }),
+      });
+      localStorage.setItem(tokenKey, payload.token);
+      applyServerData(payload);
+      state.settings.ownerPhone = phone;
+      state.settings.registered = true;
+      renderAll();
+      toast("手机号已注册，站点已保存到后端");
+      return;
+    } catch (error) {
+      toast(error.message || "后端注册失败，已保留本地注册");
+    }
   }
   state.settings.ownerPhone = phone;
   state.settings.registered = true;
@@ -1198,6 +1394,28 @@ dom.bookingForm.addEventListener("submit", (event) => {
     return;
   }
   const service = state.services[Number(dom.bookingService.value)];
+  if (serverAvailable && publicSlug) {
+    apiRequest(`/api/public/${encodeURIComponent(publicSlug)}/bookings`, {
+      method: "POST",
+      body: JSON.stringify({
+        service: service.name,
+        date: dom.bookingDate.value,
+        time: selectedTime,
+        customer: dom.customerName.value,
+        contact: dom.customerContact.value,
+      }),
+    }).then((payload) => {
+      state.bookings.push(payload.booking);
+      dom.customerName.value = "";
+      dom.customerContact.value = "";
+      renderAll();
+      toast("预约已提交到站主后台");
+    }).catch((error) => {
+      renderBookingDateStatus();
+      toast(error.message || "预约提交失败");
+    });
+    return;
+  }
   const booking = {
     service: service.name,
     date: dom.bookingDate.value,
@@ -1219,6 +1437,16 @@ dom.messageForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const text = dom.messageText.value.trim();
   if (!text) return;
+  if (serverAvailable && publicSlug) {
+    apiRequest(`/api/public/${encodeURIComponent(publicSlug)}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    }).then(() => loadPublicSiteFromServer()).then(() => {
+      dom.messageText.value = "";
+      toast("留言已发送到站主后台");
+    }).catch((error) => toast(error.message || "留言发送失败"));
+    return;
+  }
   state.messages.push({ from: "客户", text, createdAt: new Date().toISOString() });
   if (state.settings.autoReply) {
     state.messages.push({
@@ -1243,7 +1471,20 @@ $("#shareBtn").addEventListener("click", async () => {
 });
 
 dom.publishSite.addEventListener("click", async () => {
-  const publicUrl = `${location.origin}${location.pathname}?view=public#preview`;
+  let slug = state.server.slug;
+  if (serverAvailable) {
+    try {
+      const ok = await ensureServerSite();
+      if (ok) {
+        const site = await saveSiteToServer();
+        slug = site?.slug || state.server.slug;
+      }
+    } catch (error) {
+      toast(error.message || "后端保存失败，生成本地公开链接");
+    }
+  }
+  const siteParam = slug ? `&site=${encodeURIComponent(slug)}` : "";
+  const publicUrl = `${location.origin}${location.pathname}?view=public${siteParam}#preview`;
   dom.publicLinkBox.value = publicUrl;
   try {
     await navigator.clipboard.writeText(publicUrl);
@@ -1296,5 +1537,22 @@ const today = new Date();
 today.setDate(today.getDate() + 1);
 dom.bookingDate.value = today.toISOString().slice(0, 10);
 bindInputs();
-renderAll();
-alignCurrentHash();
+
+async function boot() {
+  renderAll();
+  await detectServer();
+  if (serverAvailable && publicSlug) {
+    await loadPublicSiteFromServer();
+  } else if (serverAvailable && state.server.siteId && localStorage.getItem(tokenKey)) {
+    try {
+      const payload = await apiRequest(`/api/sites/${state.server.siteId}`);
+      applyServerData(payload);
+      renderAll();
+    } catch {
+      renderAll();
+    }
+  }
+  alignCurrentHash();
+}
+
+boot();

@@ -481,11 +481,17 @@ async function loadPublicSiteFromServer() {
   if (!publicSlug) return false;
   try {
     const payload = await apiRequest(`/api/public/${encodeURIComponent(publicSlug)}`);
+    if (!payload?.site?.profile?.name) {
+      renderInvalidPublicPage("公开主页数据不完整，请重新生成链接。");
+      return false;
+    }
     applyServerData(payload);
     renderAll();
     return true;
   } catch (error) {
-    toast(error.message || "公开主页读取失败");
+    const message = error.message || "公开主页读取失败，请重新生成链接。";
+    renderInvalidPublicPage(message);
+    toast(message);
     return false;
   }
 }
@@ -972,7 +978,7 @@ function renderInvalidPublicPage(message) {
   dom.rolePreview.textContent = "无法读取站点";
   dom.siteMetaPreview.textContent = "请重新生成公开主页链接";
   dom.taglinePreview.textContent = message;
-  dom.bioPreview.textContent = "当前链接缺少站点标识，系统没有加载任何模板默认资料。";
+  dom.bioPreview.textContent = "当前公开主页无法读取有效站点数据，系统没有加载任何模板默认资料。";
   dom.servicePreview.innerHTML = "";
   dom.productPreview.innerHTML = "";
   dom.portfolioPreview.innerHTML = "";
@@ -1601,6 +1607,12 @@ dom.publishSite.addEventListener("click", async () => {
       return;
     }
 
+    const verifyPayload = await apiRequest(`/api/public/${encodeURIComponent(slug)}`);
+    if (verifyPayload?.site?.profile?.name !== state.profile.name) {
+      toast("公开主页验证失败：保存内容与公开内容不一致，请重试");
+      return;
+    }
+
     const publicUrl = `${location.origin}${location.pathname}?view=public&site=${encodeURIComponent(slug)}#preview`;
     dom.publicLinkBox.value = publicUrl;
 
@@ -1669,15 +1681,23 @@ async function boot() {
     return;
   }
 
-  renderAll();
   await detectServer();
 
-  if (serverAvailable && publicSlug) {
-    const loaded = await loadPublicSiteFromServer();
-    if (!loaded && isPublicView) {
-      toast("公开主页读取失败，请重新生成链接");
+  if (isPublicView) {
+    if (!serverAvailable) {
+      const message = "后端未连接，无法读取公开主页。";
+      renderInvalidPublicPage(message);
+      toast(message);
+      return;
     }
-  } else if (serverAvailable && state.server.siteId && localStorage.getItem(tokenKey)) {
+    await loadPublicSiteFromServer();
+    alignCurrentHash();
+    return;
+  }
+
+  renderAll();
+
+  if (serverAvailable && state.server.siteId && localStorage.getItem(tokenKey)) {
     try {
       const payload = await apiRequest(`/api/sites/${state.server.siteId}`);
       applyServerData(payload);

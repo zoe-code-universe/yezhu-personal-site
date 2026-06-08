@@ -195,6 +195,15 @@
                 </select>
               </label>
               <label>
+                性别展示
+                <select id="genderSelect">
+                  <option value="不展示">不展示</option>
+                  <option value="男">男</option>
+                  <option value="女">女</option>
+                  <option value="其他">其他</option>
+                </select>
+              </label>
+              <label>
                 站主通知
                 <input id="notifyTarget" type="text" placeholder="微信号 / 手机号">
               </label>
@@ -209,6 +218,18 @@
           </div>
 
           <div class="creator-windows">
+            <section class="creator-window" aria-label="上传封面照片">
+              <div class="window-head">
+                <p class="kicker">必选封面</p>
+                <h3>个人独立站封面图</h3>
+              </div>
+              <label class="upload-drop">
+                <input id="coverInput" type="file" accept="image/*">
+                <span id="coverPreviewBox">选择封面照片</span>
+              </label>
+              <button class="ghost-btn full" id="clearCover" type="button">移除封面</button>
+            </section>
+
             <section class="creator-window" aria-label="上传个人照片">
               <div class="window-head">
                 <p class="kicker">必选头像</p>
@@ -334,6 +355,20 @@
               <button class="primary-btn full" id="registerPhone" type="button">验证并注册</button>
               <p class="helper-text" id="phoneStatus">未注册</p>
             </section>
+
+            <section class="creator-window">
+              <div class="window-head">
+                <p class="kicker">档期管理</p>
+                <h3>手动设置已满日期</h3>
+              </div>
+              <label>
+                已满日期
+                <input id="busyDateInput" type="date">
+              </label>
+              <button class="primary-btn full" id="addBusyDate" type="button">标记为已满</button>
+              <div class="busy-date-list" id="busyDateList"></div>
+              <p class="helper-text">客户看到已满日期后，系统会禁止继续提交预约。</p>
+            </section>
           </div>
 
           <div class="form-grid">
@@ -386,6 +421,7 @@
               预约日期
               <input id="bookingDate" type="date" required>
             </label>
+            <p class="date-status" id="bookingDateStatus">请选择预约日期。</p>
             <fieldset>
               <legend>可选时间</legend>
               <div class="time-grid" id="timeGrid"></div>

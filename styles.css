@@ -282,6 +282,7 @@ main {
 }
 
 .picker-options button {
+  position: relative;
   min-height: 38px;
   padding: 0 13px;
   color: var(--white);
@@ -296,6 +297,15 @@ main {
   color: var(--black);
   background: var(--cyan);
   border-color: var(--cyan);
+}
+
+.picker-options button.active {
+  box-shadow: 0 0 0 3px rgba(242, 251, 255, 0.16), 0 0 22px rgba(82, 178, 205, 0.28);
+}
+
+.picker-options button.active::after {
+  content: "✓";
+  margin-left: 6px;
 }
 
 .picker-options .more-picker {
@@ -321,6 +331,7 @@ main {
 
 .site-style-card,
 .color-card {
+  position: relative;
   display: grid;
   gap: 8px;
   min-height: 104px;
@@ -360,6 +371,26 @@ main {
   color: var(--black);
   background: var(--cyan);
   border-color: var(--cyan);
+}
+
+.site-style-card.active,
+.color-card.active {
+  box-shadow: 0 0 0 3px rgba(242, 251, 255, 0.16), 0 0 30px rgba(82, 178, 205, 0.32);
+}
+
+.site-style-card.active::after,
+.color-card.active::after {
+  content: "已选";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 7px;
+  color: var(--black);
+  border: 1px solid rgba(11, 21, 23, 0.2);
+  border-radius: 999px;
+  background: rgba(242, 251, 255, 0.76);
+  font-size: 12px;
+  font-weight: 900;
 }
 
 .site-style-card.active small,
@@ -646,6 +677,19 @@ main {
   background:
     linear-gradient(135deg, rgba(82, 178, 205, 0.18), transparent 38%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent);
+  background-size: cover;
+  background-position: center;
+}
+
+.cover.has-cover {
+  min-height: 260px;
+  align-items: end;
+  background:
+    linear-gradient(90deg, rgba(11, 21, 23, 0.86), rgba(11, 21, 23, 0.34)),
+    linear-gradient(180deg, rgba(11, 21, 23, 0.12), rgba(11, 21, 23, 0.9)),
+    var(--cover-photo);
+  background-size: cover;
+  background-position: center;
 }
 
 .cover::after {
@@ -908,8 +952,10 @@ h3 {
 
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(64px, 1fr));
   gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .month-cell {
@@ -918,6 +964,7 @@ h3 {
   border: 1px solid rgba(82, 178, 205, 0.2);
   border-radius: 8px;
   background: rgba(205, 220, 222, 0.055);
+  white-space: nowrap;
 }
 
 .month-cell strong,
@@ -941,8 +988,19 @@ h3 {
 }
 
 .month-cell.busy {
-  background: rgba(242, 124, 12, 0.2);
-  border-color: rgba(242, 124, 12, 0.55);
+  background: linear-gradient(180deg, rgba(242, 124, 12, 0.44), rgba(98, 37, 8, 0.62));
+  border-color: rgba(242, 124, 12, 0.94);
+  box-shadow: inset 0 0 0 1px rgba(242, 251, 255, 0.12), 0 0 18px rgba(242, 124, 12, 0.22);
+}
+
+.month-cell.busy strong,
+.month-cell.busy span {
+  color: var(--white);
+}
+
+.month-cell.busy span::before {
+  content: "× ";
+  font-weight: 900;
 }
 
 .month-board-large .month-cell {
@@ -1018,6 +1076,23 @@ h3 {
 
 .upload-drop.has-image span {
   color: transparent;
+}
+
+.busy-date-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.busy-date-pill {
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--white);
+  border: 1px solid rgba(242, 124, 12, 0.7);
+  border-radius: 8px;
+  background: rgba(242, 124, 12, 0.18);
+  font-weight: 900;
 }
 
 .storage-row {
@@ -1200,6 +1275,17 @@ textarea {
   width: 18px;
   height: 18px;
   accent-color: var(--cyan);
+}
+
+.date-status {
+  margin: -4px 0 0;
+  color: var(--cyan);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.date-status.blocked {
+  color: #ffb066;
 }
 
 .conversion-grid {

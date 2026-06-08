@@ -205,6 +205,8 @@ const defaults = {
     tagline: "帮个人品牌、小店和家庭记录自然、有温度的影像。",
     bio: "8 年拍摄经验，服务过独立咖啡馆、瑜伽老师、亲子家庭和本地生活品牌。擅长把普通空间拍出真实质感。",
     photo: "",
+    coverPhoto: "",
+    gender: "不展示",
   },
   services: [
     { name: "个人形象照", price: "￥199", duration: "45 分钟", desc: "适合头像、简历、个人品牌主页，轻量好预约。" },
@@ -230,6 +232,7 @@ const defaults = {
     registered: false,
     imageUsedGb: 1.2,
     videoUsedGb: 0.2,
+    blockedDates: [],
   },
   bookings: [],
   videos: [
@@ -257,8 +260,8 @@ const defaults = {
     { name: "金卡会员", discount: 80 },
   ],
   messages: [
-    { from: "客户", text: "你好，周末可以拍个人形象照吗？" },
-    { from: "林夏", text: "可以的，你可以先选择服务和时间，我会确认具体地点。" },
+    { from: "客户", text: "你好，周末可以拍个人形象照吗？", createdAt: "2026-06-08T09:00:00.000Z" },
+    { from: "林夏", text: "可以的，你可以先选择服务和时间，我会确认具体地点。", createdAt: "2026-06-08T09:01:00.000Z" },
   ],
 };
 
@@ -278,6 +281,9 @@ const dom = {
   taglinePreview: $("#taglinePreview"),
   bioPreview: $("#bioPreview"),
   avatarPreview: $("#avatarPreview"),
+  coverInput: $("#coverInput"),
+  coverPreviewBox: $("#coverPreviewBox"),
+  clearCover: $("#clearCover"),
   photoInput: $("#photoInput"),
   photoPreviewBox: $("#photoPreviewBox"),
   makeVirtualAvatar: $("#makeVirtualAvatar"),
@@ -306,11 +312,15 @@ const dom = {
   ownerPhone: $("#ownerPhone"),
   registerPhone: $("#registerPhone"),
   phoneStatus: $("#phoneStatus"),
+  busyDateInput: $("#busyDateInput"),
+  addBusyDate: $("#addBusyDate"),
+  busyDateList: $("#busyDateList"),
   cityOptions: $("#cityOptions"),
   jobOptions: $("#jobOptions"),
   citySelect: $("#citySelect"),
   jobSelect: $("#jobSelect"),
   avatarMode: $("#avatarMode"),
+  genderSelect: $("#genderSelect"),
   notifyTarget: $("#notifyTarget"),
   enableWorks: $("#enableWorks"),
   enableVideo: $("#enableVideo"),
@@ -333,6 +343,7 @@ const dom = {
   smsReminder: $("#smsReminder"),
   bookingService: $("#bookingService"),
   bookingDate: $("#bookingDate"),
+  bookingDateStatus: $("#bookingDateStatus"),
   timeGrid: $("#timeGrid"),
   bookingForm: $("#bookingForm"),
   customerName: $("#customerName"),
@@ -365,6 +376,14 @@ function loadState() {
     const oldDemoPrices = ["￥699", "￥999", "￥1299"];
     return oldDemoPrices.includes(service.price) ? { ...service, ...preset } : service;
   });
+  const bookings = (parsed.bookings || []).map((booking, index) => ({
+    ...booking,
+    createdAt: booking.createdAt || `2026-06-08T08:${String(index).padStart(2, "0")}:00.000Z`,
+  }));
+  const messages = (parsed.messages?.length ? parsed.messages : structuredClone(defaults.messages)).map((message, index) => ({
+    ...message,
+    createdAt: message.createdAt || `2026-06-08T09:${String(index).padStart(2, "0")}:00.000Z`,
+  }));
   return {
     ...structuredClone(defaults),
     ...parsed,
@@ -384,14 +403,15 @@ function loadState() {
       contactValue: parsed.settings?.contactValue === "hello@yezhu.local" ? defaults.settings.contactValue : (parsed.settings?.contactValue || defaults.settings.contactValue),
       imageUsedGb: (parsed.settings?.imageUsedGb ?? defaults.settings.imageUsedGb) >= 5 ? defaults.settings.imageUsedGb : (parsed.settings?.imageUsedGb ?? defaults.settings.imageUsedGb),
       videoUsedGb: (parsed.settings?.videoUsedGb ?? defaults.settings.videoUsedGb) >= 1 ? defaults.settings.videoUsedGb : (parsed.settings?.videoUsedGb ?? defaults.settings.videoUsedGb),
+      blockedDates: Array.isArray(parsed.settings?.blockedDates) ? parsed.settings.blockedDates : defaults.settings.blockedDates,
     },
     services: migratedServices,
     works: parsed.works?.length ? parsed.works : structuredClone(defaults.works),
     videos: parsed.videos?.length ? parsed.videos : structuredClone(defaults.videos),
     products: parsed.products?.length ? parsed.products : structuredClone(defaults.products),
     tiers: parsed.tiers?.length ? parsed.tiers : structuredClone(defaults.tiers),
-    bookings: parsed.bookings || [],
-    messages: parsed.messages?.length ? parsed.messages : structuredClone(defaults.messages),
+    bookings,
+    messages,
   };
 }
 
@@ -495,6 +515,33 @@ function moduleLabel(enabled, name) {
   return enabled ? `${name}已开启` : `${name}未开启`;
 }
 
+function genderLabel() {
+  return state.profile.gender && state.profile.gender !== "不展示" ? `${state.profile.gender}性` : "";
+}
+
+function bookingCountsByDay() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  return state.bookings.reduce((acc, booking) => {
+    const date = new Date(booking.date);
+    if (date.getFullYear() !== year || date.getMonth() !== month) return acc;
+    const day = date.getDate();
+    acc[day] = (acc[day] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function isDateFull(dateValue) {
+  if (!dateValue) return false;
+  if (state.settings.blockedDates.includes(dateValue)) return true;
+  const date = new Date(dateValue);
+  const now = new Date();
+  if (date.getFullYear() !== now.getFullYear() || date.getMonth() !== now.getMonth()) return false;
+  const counts = bookingCountsByDay();
+  return (counts[date.getDate()] || 0) >= 3;
+}
+
 function renderProfile() {
   document.body.dataset.template = "base";
   document.body.dataset.siteStyle = state.settings.siteStyle || "whitespace";
@@ -508,9 +555,20 @@ function renderProfile() {
 
   dom.namePreview.textContent = state.profile.name;
   dom.rolePreview.textContent = state.profile.role;
-  dom.siteMetaPreview.textContent = `${state.settings.city} · ${preset.label} · ${moduleLabel(state.settings.enableWorks, "作品")} · ${moduleLabel(state.settings.enableVideo, "视频")}`;
+  const metaParts = [state.settings.city, preset.label, genderLabel(), moduleLabel(state.settings.enableWorks, "作品"), moduleLabel(state.settings.enableVideo, "视频")].filter(Boolean);
+  dom.siteMetaPreview.textContent = metaParts.join(" · ");
   dom.taglinePreview.textContent = state.profile.tagline;
   dom.bioPreview.textContent = state.profile.bio;
+  const cover = $(".cover");
+  cover.classList.toggle("has-cover", Boolean(state.profile.coverPhoto));
+  if (state.profile.coverPhoto) {
+    cover.style.setProperty("--cover-photo", `url(${state.profile.coverPhoto})`);
+  } else {
+    cover.style.removeProperty("--cover-photo");
+  }
+  dom.coverPreviewBox.parentElement.classList.toggle("has-image", Boolean(state.profile.coverPhoto));
+  dom.coverPreviewBox.style.backgroundImage = state.profile.coverPhoto ? `url(${state.profile.coverPhoto})` : "";
+  dom.coverPreviewBox.textContent = state.profile.coverPhoto ? "已上传封面照片" : "选择封面照片";
   dom.avatarPreview.textContent = state.profile.photo ? "" : state.profile.name.slice(0, 1) || "你";
   dom.avatarPreview.style.backgroundImage = state.profile.photo ? `url(${state.profile.photo})` : buildVirtualAvatar();
   dom.avatarPreview.classList.toggle("has-photo", Boolean(state.profile.photo));
@@ -522,6 +580,7 @@ function renderProfile() {
   renderLaunchChoices();
   renderStyleChoices();
   dom.avatarMode.value = state.settings.avatarMode;
+  dom.genderSelect.value = state.profile.gender || "不展示";
   dom.notifyTarget.value = state.settings.notifyTarget;
   dom.enableWorks.checked = state.settings.enableWorks;
   dom.enableVideo.checked = state.settings.enableVideo;
@@ -618,19 +677,15 @@ function renderMonthBoard() {
   const year = now.getFullYear();
   const month = now.getMonth();
   const days = new Date(year, month + 1, 0).getDate();
-  const bookingCountByDay = state.bookings.reduce((acc, booking) => {
-    const date = new Date(booking.date);
-    if (date.getFullYear() !== year || date.getMonth() !== month) return acc;
-    const day = date.getDate();
-    acc[day] = (acc[day] || 0) + 1;
-    return acc;
-  }, {});
+  const bookingCountByDay = bookingCountsByDay();
   const cells = Array.from({ length: days }, (_, index) => {
     const day = index + 1;
     const count = bookingCountByDay[day] || 0;
-    const busy = count >= 3;
+    const dateValue = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const manualBusy = state.settings.blockedDates.includes(dateValue);
+    const busy = manualBusy || count >= 3;
     return `
-      <div class="month-cell ${count ? "has-booking" : ""} ${busy ? "busy" : ""}">
+      <div class="month-cell ${count ? "has-booking" : ""} ${busy ? "busy" : ""} ${manualBusy ? "manual-busy" : ""}">
         <strong>${day}</strong>
         <span>${busy ? "已满" : count ? `${count} 约` : "可约"}</span>
       </div>
@@ -640,6 +695,30 @@ function renderMonthBoard() {
   const board = `<div class="month-title">${title}</div><div class="month-grid">${cells}</div>`;
   dom.monthBoardPreview.innerHTML = board;
   dom.monthBoardAdmin.innerHTML = board;
+}
+
+function renderBusyDates() {
+  const sortedDates = [...state.settings.blockedDates].sort();
+  dom.busyDateList.innerHTML = sortedDates.map((date) => `
+    <button class="busy-date-pill" type="button" data-remove-busy-date="${date}">
+      ${date} 已满 ×
+    </button>
+  `).join("") || "<p class=\"helper-text\">暂未手动设置已满日期。</p>";
+}
+
+function renderBookingDateStatus() {
+  if (!dom.bookingDate.value) {
+    dom.bookingDateStatus.textContent = "请选择预约日期。";
+    dom.bookingDateStatus.classList.remove("blocked");
+    return;
+  }
+  if (isDateFull(dom.bookingDate.value)) {
+    dom.bookingDateStatus.textContent = "该日期已满，请选择其他日期。";
+    dom.bookingDateStatus.classList.add("blocked");
+    return;
+  }
+  dom.bookingDateStatus.textContent = "该日期可预约。";
+  dom.bookingDateStatus.classList.remove("blocked");
 }
 
 function renderTiers() {
@@ -697,22 +776,32 @@ function renderLeads() {
   dom.messageCount.textContent = state.messages.filter((message) => message.from === "客户").length;
   dom.leadScore.textContent = state.bookings.length * 20 + state.messages.length * 5;
 
-  const bookingItems = state.bookings.map((booking) => `
-    <div class="lead-item">
-      <strong>预约：${booking.customer}</strong>
-      <span>${booking.service} · ${booking.date} ${booking.time}</span>
-      <span>${booking.contact}</span>
-      <span>${booking.reminder || "已通知站主"}</span>
-      <span>状态：${booking.status || "待商家确认"}</span>
-    </div>
-  `);
-  const messageItems = state.messages.filter((message) => message.from === "客户").map((message) => `
-    <div class="lead-item">
-      <strong>留言咨询</strong>
-      <span>${message.text}</span>
-    </div>
-  `);
-  dom.leadList.innerHTML = [...bookingItems, ...messageItems].slice(-8).reverse().join("") || "<p>还没有线索，先提交一个预约或留言。</p>";
+  const bookingItems = state.bookings.map((booking) => ({
+    createdAt: booking.createdAt || booking.date,
+    html: `
+      <div class="lead-item">
+        <strong>预约：${booking.customer}</strong>
+        <span>${booking.service} · ${booking.date} ${booking.time}</span>
+        <span>${booking.contact}</span>
+        <span>${booking.reminder || "已通知站主"}</span>
+        <span>状态：${booking.status || "待商家确认"}</span>
+      </div>
+    `,
+  }));
+  const messageItems = state.messages.filter((message) => message.from === "客户").map((message) => ({
+    createdAt: message.createdAt || "",
+    html: `
+      <div class="lead-item">
+        <strong>留言咨询</strong>
+        <span>${message.text}</span>
+      </div>
+    `,
+  }));
+  dom.leadList.innerHTML = [...bookingItems, ...messageItems]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 8)
+    .map((item) => item.html)
+    .join("") || "<p>还没有线索，先提交一个预约或留言。</p>";
 }
 
 function renderAll() {
@@ -723,6 +812,8 @@ function renderAll() {
   renderProducts();
   renderTiers();
   renderMonthBoard();
+  renderBusyDates();
+  renderBookingDateStatus();
   renderStorage();
   renderTimeGrid();
   renderMessages();
@@ -781,11 +872,28 @@ function bindInputs() {
     toast(state.settings.avatarMode === "virtual" ? "已使用虚拟头像" : "请上传真人头像");
   });
 
+  dom.genderSelect.addEventListener("change", () => {
+    state.profile.gender = dom.genderSelect.value;
+    renderAll();
+    toast("性别展示已更新");
+  });
+
   dom.notifyTarget.addEventListener("input", () => {
     state.settings.notifyTarget = dom.notifyTarget.value.trim();
     state.settings.contactValue = state.settings.notifyTarget || state.settings.contactValue;
     renderProfile();
     saveState();
+  });
+
+  dom.ownerPhone.addEventListener("input", () => {
+    state.settings.ownerPhone = dom.ownerPhone.value.trim();
+    state.settings.registered = false;
+    renderProfile();
+    saveState();
+  });
+
+  dom.bookingDate.addEventListener("input", () => {
+    renderBookingDateStatus();
   });
 }
 
@@ -860,6 +968,12 @@ document.addEventListener("click", (event) => {
     toast("已带入服务，请选择时间提交预约");
   }
   if (target.dataset.productBook !== undefined) {
+    if (isDateFull(dom.bookingDate.value)) {
+      renderBookingDateStatus();
+      toast("该日期已满，请选择其他日期");
+      location.hash = "#booking";
+      return;
+    }
     const product = state.products[Number(target.dataset.productBook)];
     state.bookings.push({
       service: product.name,
@@ -869,10 +983,16 @@ document.addEventListener("click", (event) => {
       contact: "来自商品预约按钮",
       reminder: `已通知站主：${state.settings.notifyTarget || state.settings.contactValue}`,
       status: "待客户补充信息",
+      createdAt: new Date().toISOString(),
     });
     renderAll();
     location.hash = "#booking";
     toast("橱窗预约已创建，请客户补充信息");
+  }
+  if (target.dataset.removeBusyDate) {
+    state.settings.blockedDates = state.settings.blockedDates.filter((date) => date !== target.dataset.removeBusyDate);
+    renderAll();
+    toast("已取消该日已满标记");
   }
 });
 
@@ -887,6 +1007,21 @@ function readImage(input, callback) {
   reader.addEventListener("load", () => callback(reader.result));
   reader.readAsDataURL(file);
 }
+
+dom.coverInput.addEventListener("change", () => {
+  readImage(dom.coverInput, (dataUrl) => {
+    state.profile.coverPhoto = dataUrl;
+    renderAll();
+    toast("封面照片已更新");
+  });
+});
+
+dom.clearCover.addEventListener("click", () => {
+  state.profile.coverPhoto = "";
+  dom.coverInput.value = "";
+  renderAll();
+  toast("封面照片已移除");
+});
 
 dom.photoInput.addEventListener("change", () => {
   readImage(dom.photoInput, (dataUrl) => {
@@ -1003,6 +1138,20 @@ dom.addProduct.addEventListener("click", () => {
   toast("预约服务已添加");
 });
 
+dom.addBusyDate.addEventListener("click", () => {
+  const date = dom.busyDateInput.value;
+  if (!date) {
+    toast("请选择要标记已满的日期");
+    return;
+  }
+  if (!state.settings.blockedDates.includes(date)) {
+    state.settings.blockedDates.push(date);
+  }
+  dom.busyDateInput.value = "";
+  renderAll();
+  toast("已标记该日已满");
+});
+
 dom.registerPhone.addEventListener("click", () => {
   const phone = dom.ownerPhone.value.trim();
   if (!/^1[3-9]\d{9}$/.test(phone)) {
@@ -1017,6 +1166,11 @@ dom.registerPhone.addEventListener("click", () => {
 
 dom.bookingForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (isDateFull(dom.bookingDate.value)) {
+    renderBookingDateStatus();
+    toast("该日期已满，请选择其他日期");
+    return;
+  }
   const service = state.services[Number(dom.bookingService.value)];
   const booking = {
     service: service.name,
@@ -1026,6 +1180,7 @@ dom.bookingForm.addEventListener("submit", (event) => {
     contact: dom.customerContact.value,
     reminder: `已通知站主：${state.settings.notifyTarget || state.settings.contactValue}`,
     status: "待商家确认",
+    createdAt: new Date().toISOString(),
   };
   state.bookings.push(booking);
   dom.customerName.value = "";
@@ -1038,11 +1193,12 @@ dom.messageForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const text = dom.messageText.value.trim();
   if (!text) return;
-  state.messages.push({ from: "客户", text });
+  state.messages.push({ from: "客户", text, createdAt: new Date().toISOString() });
   if (state.settings.autoReply) {
     state.messages.push({
       from: state.profile.name,
       text: "收到啦，我会尽快回复。你也可以直接在预约区选择合适的服务和时间。",
+      createdAt: new Date(Date.now() + 1000).toISOString(),
     });
   }
   dom.messageText.value = "";
@@ -1070,6 +1226,7 @@ $("#exportLeads").addEventListener("click", () => {
     tiers: state.tiers,
     bookings: state.bookings,
     messages: state.messages,
+    settings: state.settings,
   }, null, 2);
   toast("线索数据已导出");
 });
